@@ -11,9 +11,6 @@ from nltk.util import ngrams
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
 
-
-file = "data/Hall.csv "
-
 def extract_text(csv_file):
     titles_abstracts = []
     with open(csv_file, 'r', encoding='utf-8') as file:
@@ -23,31 +20,29 @@ def extract_text(csv_file):
     return titles_abstracts
 
 def process_docs(documents):
+
     #Tokenizing the sentences
     tokenized_documents = [word_tokenize(doc.lower()) for doc in documents]
-    # print(tokenized_documents[0])
+
     #stemming the tokens
     ps = PorterStemmer()
     punctuation = re.compile(r'[-.?!,:;()|0-9]')
     Stemmed_documents = [ [ ps.stem(token) for token in tokens if len(punctuation.sub("", token)) > 0] for tokens in tokenized_documents]
-    # print("---------------------------------------------------------------------------------------")
-    # print(Stemmed_documents[0])
-    #Remove stop words
-    stopWords = set(stopwords.words("english"))
-    processed_documents = [ [ token for token in Stemmed_document if token not in stopWords ] for Stemmed_document in Stemmed_documents]
-    # print("---------------------------------------------------------------------------------------")
-    # print(processed_documents[0])
-    #constructing ngrams fromm the tokens
-    final_documents = [ [ ' '.join(ngram) for ngram in ngrams(processed_document, 4)] for processed_document in processed_documents]
-    # print("---------------------------------------------------------------------------------------")
-    # print(final_documents[0])
-    return final_documents
 
-def compute_tf1(doc):
-    fdist = FreqDist()
-    for n_gram in doc:
-        fdist[n_gram.lower()] += 1
-    return fdist
+    #Remove stop words
+    stop_words = set(stopwords.words("english"))
+    processed_documents = [ [ token for token in Stemmed_document if token not in stop_words ] for Stemmed_document in Stemmed_documents]
+
+    #constructing ngrams fromm the tokens words
+    if as_words:
+        final_documents = [ [ ' '.join(ngram) for ngram in ngrams(processed_document, nGram_size)] for processed_document in processed_documents]
+
+    #constructing ngrams fromm the tokens characters
+    else:
+        character_tokens = [ [ char for token in processed_document for char in token ] for processed_document in processed_documents]
+        final_documents = [ [ ' '.join(ngram) for ngram in ngrams(character_token, nGram_size)] for character_token in character_tokens]
+
+    return final_documents
 
 def compute_tf(doc):
     tf_dict = defaultdict(int)
@@ -56,20 +51,6 @@ def compute_tf(doc):
     for word in tf_dict:
         tf_dict[word] = tf_dict[word] / len(doc)
     return tf_dict
-
-def compute_idf1(doc_list):
-
-    fdist = FreqDist()
-    N = len(doc_list)
-
-    for doc in doc_list:
-        for word in set(doc):
-            fdist[word] += 1
-
-    for word in fdist:
-        fdist[word] = math.log(N / (fdist[word]))
-    
-    return fdist
 
 def compute_idf(doc_list):
     idf_dict = defaultdict(int)
@@ -86,6 +67,27 @@ def compute_idf(doc_list):
     
     return idf_dict
 
+def compute_idf1(doc_list):
+    tf_dict = defaultdict(int)
+    idf_dict = defaultdict(int)
+    number_of_documents = len(doc_list)
+    number_of_tokes = 0
+
+    # Count the number of documents that contain each word
+    for doc in doc_list:
+        number_of_tokes += len(doc)
+        for word in set(doc):
+            idf_dict[word] += 1
+            tf_dict[word] += 1
+    
+    # Calculate the IDF score
+    for word in idf_dict:
+        idf_dict[word] = math.log(number_of_documents / (idf_dict[word]))
+    
+    for word in tf_dict:
+        tf_dict[word] = tf_dict[word] / number_of_tokes
+    
+    return tf_dict, idf_dict
 
 def compute_tfidf(tf_doc, idf):
     tfidf = {}
@@ -93,20 +95,52 @@ def compute_tfidf(tf_doc, idf):
         tfidf[word] = tf_val * idf[word]
     return tfidf
 
+def tokenize():
+    documents = extract_text(file)
+    tokenized_documents = process_docs(documents)
+    return tokenized_documents
+
+def one_for_all(tokenized_documents):
+    # changed tf-idf
+    tf, idf = compute_idf1(tokenized_documents)
+    tfidf = compute_tfidf(tf, idf)
+    tfidf = dict(sorted(tfidf.items(), key=lambda x: x[1], reverse=True))
+    i = 0
+    print(len(tfidf))
+    for key, value in tfidf.items():
+        print(key + ' : ' + str(value))
+        i+=1
+        if i == 1000:
+            break
+
+def diff_for_all(tokenized_documents):
+    tf_documents = [compute_tf(doc) for doc in tokenized_documents]
+    idf = compute_idf(tokenized_documents)
+    tfidf_documents = [compute_tfidf(tf_doc, idf) for tf_doc in tf_documents]
+    for i, doc in enumerate(tfidf_documents):
+        print(f"Document {i+1} TF-IDF:")
+        j = 0
+        doc = dict(sorted(doc.items(), key=lambda x: x[1], reverse=True))
+        print(len(doc))
+        for word, score in doc.items():
+            print(f"{word}: {score}")
+            j+=1
+            if j == 50:
+                break
+        if i == 2:
+            break
 
 
-documents = extract_text(file)
-tokenized_documents = process_docs(documents)
-# tokenized_documents = [word_tokenize(doc.lower()) for doc in documents]
-tf_documents = [compute_tf(doc) for doc in tokenized_documents]
-idf = compute_idf(tokenized_documents)
-tfidf_documents = [compute_tfidf(tf_doc, idf) for tf_doc in tf_documents]
-for i, doc in enumerate(tfidf_documents):
-    print(f"Document {i+1} TF-IDF:")
-    for word, score in doc.items():
-        print(f"  {word}: {score}")
-    if i == 2:
-        break
 
+def main():
+    tokenized_documents = tokenize()
 
+    # diff_for_all(tokenized_documents)
 
+    # one_for_all(tokenized_documents)
+
+file = "data/Hall.csv "
+as_words = True
+nGram_size = 4
+
+main()
