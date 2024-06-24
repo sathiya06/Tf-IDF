@@ -3,7 +3,7 @@
     (C) 2024 Sathiya Narayanan Venkatesan (sathiyavenkat06@gmail.com) BSD-2 license.        
 """
 
-import csv, math, re
+import csv, math, re, os
 from collections import defaultdict
 from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
@@ -68,26 +68,35 @@ def compute_idf(doc_list):
     return idf_dict
 
 def compute_idf1(doc_list):
-    tf_dict = defaultdict(int)
+    tf_arr = []
     idf_dict = defaultdict(int)
+    tf_fre = defaultdict(int)
     number_of_documents = len(doc_list)
-    number_of_tokes = 0
+    # number_of_tokens = 0
 
     # Count the number of documents that contain each word
     for doc in doc_list:
-        number_of_tokes += len(doc)
+        # number_of_tokens += len(doc)
         for word in set(doc):
-            idf_dict[word] += 1
+            idf_dict[word] += 1   
+
+    for doc in doc_list:
+        tf_dict = defaultdict(int)
+        for word in doc:
             tf_dict[word] += 1
+            tf_fre[word] += 1
+        tf_arr.append(tf_dict)
     
     # Calculate the IDF score
     for word in idf_dict:
         idf_dict[word] = math.log(number_of_documents / (idf_dict[word]))
     
-    for word in tf_dict:
-        tf_dict[word] = tf_dict[word] / number_of_tokes
+    for i, doc in enumerate(doc_list):
+        tf_dict = tf_arr[i]
+        for word in set(doc):
+            tf_dict[word] = tf_dict[word] / tf_fre[word]
     
-    return tf_dict, idf_dict
+    return tf_arr, idf_dict
 
 def compute_tfidf(tf_doc, idf):
     tfidf = {}
@@ -102,15 +111,19 @@ def tokenize():
 
 def one_for_all(tokenized_documents):
     # changed tf-idf
-    tf, idf = compute_idf1(tokenized_documents)
-    tfidf = compute_tfidf(tf, idf)
-    tfidf = dict(sorted(tfidf.items(), key=lambda x: x[1], reverse=True))
-    i = 0
-    print(len(tfidf))
-    for key, value in tfidf.items():
-        print(key + ' : ' + str(value))
-        i+=1
-        if i == 1000:
+    tf_documents, idf = compute_idf1(tokenized_documents)
+    tfidf_documents = [compute_tfidf(tf_doc, idf) for tf_doc in tf_documents]
+    for i, doc in enumerate(tfidf_documents):
+        print(f"Document {i+1} TF-IDF:")
+        j = 0
+        doc = dict(sorted(doc.items(), key=lambda x: x[1], reverse=True))
+        print(len(doc))
+        for word, score in doc.items():
+            print(f"{word}: {score}")
+            j+=1
+            if j == 50:
+                break
+        if i == 2:
             break
 
 def diff_for_all(tokenized_documents):
@@ -130,17 +143,55 @@ def diff_for_all(tokenized_documents):
         if i == 2:
             break
 
+def print_fre(doc_list):
 
+    tf_arr = []
+    idf_dict = defaultdict(int)
+    tf_fre = defaultdict(int)
+    number_of_documents = len(doc_list)
+    number_of_tokens = 0
+
+    # Count the number of documents that contain each word
+    for doc in doc_list:
+        number_of_tokens += len(doc)
+        for word in set(doc):
+            idf_dict[word] += 1   
+
+    for doc in doc_list:
+        tf_dict = defaultdict(int)
+        for word in doc:
+            tf_dict[word] += 1
+            tf_fre[word] += 1
+        tf_arr.append(tf_dict)
+
+    file_path = f'data/Hall/fre.csv'
+
+    directory = os.path.dirname(file_path)
+    os.makedirs(directory, exist_ok=True)
+
+    with open(file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['number of documents', number_of_documents])
+        writer.writerow(['number_of_tokens', number_of_tokens])
+        writer.writerow(['document', 'word', 'frequency'])
+        # for key, value in tf_fre.items():
+        #     writer.writerow(['all', key, value])
+        for i, doc in enumerate(doc_list):
+            writer.writerow([i, 'length', len(doc)])
+            for key, val in tf_arr[i].items():
+                writer.writerow([i, key, val])
 
 def main():
     tokenized_documents = tokenize()
+
+    print_fre(tokenized_documents)
 
     # diff_for_all(tokenized_documents)
 
     # one_for_all(tokenized_documents)
 
-file = "data/Hall.csv "
-as_words = True
+file = "data/Hall.csv"
+as_words = False
 nGram_size = 4
 
 main()
