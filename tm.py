@@ -173,13 +173,13 @@ def print_fre(doc_list):
         writer = csv.writer(file)
         writer.writerow(['number of documents', number_of_documents])
         writer.writerow(['number_of_tokens', number_of_tokens])
-        writer.writerow(['document', 'word', 'frequency'])
+        writer.writerow(['document', 'word', 'frequency', 'frequency across all documents'])
         # for key, value in tf_fre.items():
         #     writer.writerow(['all', key, value])
         for i, doc in enumerate(doc_list):
             writer.writerow([i, 'length', len(doc)])
             for key, val in tf_arr[i].items():
-                writer.writerow([i, key, val])
+                writer.writerow([i, key, val, tf_fre[key]])
 
 def main():
     tokenized_documents = tokenize()
