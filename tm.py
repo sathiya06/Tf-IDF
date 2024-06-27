@@ -11,13 +11,15 @@ from nltk.util import ngrams
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
 
-def extract_text(csv_file):
+def extract_text():
     titles_abstracts = []
-    with open(csv_file, 'r', encoding='utf-8') as file:
+    lables = []
+    with open(input_file, 'r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
         for row in reader:
             titles_abstracts.append(row['Document Title'] + ' ' + row['Abstract'])
-    return titles_abstracts
+            lables.append(row['label'])
+    return titles_abstracts, lables
 
 def process_docs(documents):
 
@@ -67,37 +69,6 @@ def compute_idf(doc_list):
     
     return idf_dict
 
-def compute_idf1(doc_list):
-    tf_arr = []
-    idf_dict = defaultdict(int)
-    tf_fre = defaultdict(int)
-    number_of_documents = len(doc_list)
-    # number_of_tokens = 0
-
-    # Count the number of documents that contain each word
-    for doc in doc_list:
-        # number_of_tokens += len(doc)
-        for word in set(doc):
-            idf_dict[word] += 1   
-
-    for doc in doc_list:
-        tf_dict = defaultdict(int)
-        for word in doc:
-            tf_dict[word] += 1
-            tf_fre[word] += 1
-        tf_arr.append(tf_dict)
-    
-    # Calculate the IDF score
-    for word in idf_dict:
-        idf_dict[word] = math.log(number_of_documents / (idf_dict[word]))
-    
-    for i, doc in enumerate(doc_list):
-        tf_dict = tf_arr[i]
-        for word in set(doc):
-            tf_dict[word] = tf_dict[word] / tf_fre[word]
-    
-    return tf_arr, idf_dict
-
 def compute_tfidf(tf_doc, idf):
     tfidf = {}
     for word, tf_val in tf_doc.items():
@@ -105,14 +76,11 @@ def compute_tfidf(tf_doc, idf):
     return tfidf
 
 def tokenize():
-    documents = extract_text(file)
+    documents, labels = extract_text()
     tokenized_documents = process_docs(documents)
-    return tokenized_documents
+    return tokenized_documents, labels
 
-def one_for_all(tokenized_documents):
-    # changed tf-idf
-    tf_documents, idf = compute_idf1(tokenized_documents)
-    tfidf_documents = [compute_tfidf(tf_doc, idf) for tf_doc in tf_documents]
+def unsorted_print(tfidf_documents):
     for i, doc in enumerate(tfidf_documents):
         print(f"Document {i+1} TF-IDF:")
         j = 0
@@ -126,72 +94,48 @@ def one_for_all(tokenized_documents):
         if i == 2:
             break
 
-def diff_for_all(tokenized_documents):
+def get_top100(tfidf_documents):
+    combined_tfidf = {}
+    for doc in tfidf_documents:
+        combined_tfidf.update(doc)
+    sorted_tfidf = dict(sorted(doc.items(), key=lambda x: x[1], reverse=True))
+    nGrams = []
+    print('Top 100 Ngrams in all documents.')
+    for word, score in sorted_tfidf.items():
+        print(f"{word}: {score}")
+        nGrams.append(word)
+        if len(nGrams) == 100:
+            break
+    return nGrams
+
+def generate_tabular_data(tfidf_documents, nGrams, labels):
+
+    directory = os.path.dirname(output_file)
+    os.makedirs(directory, exist_ok=True)
+
+    with open(output_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        nGrams.append('label')
+        writer.writerow(nGrams)
+        
+        for i, doc in enumerate(tfidf_documents):
+            row = []
+            for nGram in nGrams:
+                row.append(round(doc.get(nGram, 0), 4))
+            row.append(labels[i])
+            writer.writerow(row)
+
+def main():
+    tokenized_documents, labels = tokenize()
     tf_documents = [compute_tf(doc) for doc in tokenized_documents]
     idf = compute_idf(tokenized_documents)
     tfidf_documents = [compute_tfidf(tf_doc, idf) for tf_doc in tf_documents]
-    for i, doc in enumerate(tfidf_documents):
-        print(f"Document {i+1} TF-IDF:")
-        j = 0
-        doc = dict(sorted(doc.items(), key=lambda x: x[1], reverse=True))
-        print(len(doc))
-        for word, score in doc.items():
-            print(f"{word}: {score}")
-            j+=1
-            if j == 50:
-                break
-        if i == 2:
-            break
+    nGrams = get_top100(tfidf_documents)
+    generate_tabular_data(tfidf_documents, nGrams, labels)
 
-def print_fre(doc_list):
-
-    tf_arr = []
-    idf_dict = defaultdict(int)
-    tf_fre = defaultdict(int)
-    number_of_documents = len(doc_list)
-    number_of_tokens = 0
-
-    # Count the number of documents that contain each word
-    for doc in doc_list:
-        number_of_tokens += len(doc)
-        for word in set(doc):
-            idf_dict[word] += 1   
-
-    for doc in doc_list:
-        tf_dict = defaultdict(int)
-        for word in doc:
-            tf_dict[word] += 1
-            tf_fre[word] += 1
-        tf_arr.append(tf_dict)
-
-    file_path = f'data/Hall/fre.csv'
-
-    directory = os.path.dirname(file_path)
-    os.makedirs(directory, exist_ok=True)
-
-    with open(file_path, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['number of documents', number_of_documents])
-        writer.writerow(['number_of_tokens', number_of_tokens])
-        writer.writerow(['document', 'word', 'frequency', 'frequency across all documents'])
-        # for key, value in tf_fre.items():
-        #     writer.writerow(['all', key, value])
-        for i, doc in enumerate(doc_list):
-            writer.writerow([i, 'length', len(doc)])
-            for key, val in tf_arr[i].items():
-                writer.writerow([i, key, val, tf_fre[key]])
-
-def main():
-    tokenized_documents = tokenize()
-
-    print_fre(tokenized_documents)
-
-    # diff_for_all(tokenized_documents)
-
-    # one_for_all(tokenized_documents)
-
-file = "data/Hall.csv"
-as_words = False
+input_file = "data/Hall.csv"
+output_file = f'data/new/Hall_words4.csv'
+as_words = True
 nGram_size = 4
 
 main()
