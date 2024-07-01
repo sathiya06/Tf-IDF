@@ -133,9 +133,9 @@ def main():
     nGrams = get_top100(tfidf_documents)
     generate_tabular_data(tfidf_documents, nGrams, labels)
 
-input_file = "data/Hall.csv"
-output_file = f'data/new/Hall_words4.csv'
-as_words = True
+input_file = "data/Wahono.csv"
+output_file = f'data/new/Wahono.csv'
+as_words = False
 nGram_size = 4
 
 main()
